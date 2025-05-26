@@ -1,24 +1,35 @@
 // forza_telemetry_arduino.ino
 /*
-  ESP32 Sketch to Receive Processed G-Forces from PC via USB Serial and Control Motors
+  ESP32 Sketch to Receive G-Forces and Actuator Data from PC via USB Serial and Control Motors
 
   This sketch:
-  1. Reads a comma-separated string of G-force values (longitudinal, lateral, vertical)
-     from the USB serial port, sent by a companion PC application.
-  2. Parses these G-force values.
-  3. (Example) Maps these G-forces to PWM signals for hypothetical motor control.
+  1. Reads a comma-separated string of telemetry values from the USB serial port, 
+     sent by a companion PC application. Format:
+     "longitude,latitude,vertical,throttle,brake,steering,suspension_fl,suspension_fr,suspension_rl,suspension_rr\n"
+  2. Parses these telemetry values (G-forces and actuator data).
+  3. (Example) Maps these values to PWM signals for hypothetical motor control.
+
+  Data Format:
+  - longitude: Longitudinal G-force (forward/backward acceleration)
+  - latitude: Lateral G-force (left/right acceleration) 
+  - vertical: Vertical G-force (up/down acceleration)
+  - throttle: Throttle percentage (0.0-100.0%)
+  - brake: Brake percentage (0.0-100.0%)
+  - steering: Steering wheel position (-255 to +255)
+  - suspension_fl/fr/rl/rr: Suspension travel (0.0-1.0) for Front Left/Right, Rear Left/Right
 
   Setup Instructions:
   1. Hardware: Arduino Mega 2560 development board connected to PC via USB.
   2. Arduino IDE: Standard Arduino IDE setup.
-  3. PC Application: Use the provided Python script (`forza_to_arduino_pc_app.py`)
-     or a similar application that calculates G-forces from Forza telemetry and
-     sends them to the Arduino's serial port in the format "long,lat,vert\\n".
+  3. PC Application: Use the provided C++ GUI application (`forza_to_arduino_gui_simple.exe`)
+     or Python script that calculates G-forces and extracts actuator data from Forza telemetry.
   4. Upload this sketch to your Arduino Mega 2560.
   5. Open the Serial Monitor in the Arduino IDE (baud rate 115200) to see logs
-     and the G-force data received from the PC.
+     and the telemetry data received from the PC.
   6. Run the PC forwarding application.
   7. Start racing in Forza Horizon!
+  
+  Note: Backward compatibility with old 3-value format (just G-forces) is maintained.
 */
 
 #include <Arduino.h>
@@ -61,7 +72,8 @@ void setup() {
     Serial.println("\\n===============================================");
     Serial.println("🏎️ Arduino Mega G-Force Motor Controller (USB Serial)");
     Serial.println("===============================================");
-    Serial.println("[SERIAL] Arduino Mega ready. Waiting for G-Force data from PC (format: long,lat,vert\\n)");
+    Serial.println("[SERIAL] Arduino Mega ready. Waiting for telemetry data from PC");
+    Serial.println("[FORMAT] Expected: long,lat,vert,throttle,brake,steering,susp_fl,susp_fr,susp_rl,susp_rr\\n");
 
     // --- Setup Motor Pins ---
     // Longitudinal Motor
@@ -101,7 +113,7 @@ void setup() {
     lastDataReceivedTime = millis();
 }
 
-void processGForceData(float gLong, float gLat, float gVert) {
+void processGForceData(float gLong, float gLat, float gVert, float throttle, float brake, int steering, float suspFL, float suspFR, float suspRL, float suspRR) {
     // --- Example Motor Control Logic ---
     // This is a very basic example. Real motor control would be more sophisticated,
     // potentially involving PID controllers, dead zones, and careful mapping of G-forces.
@@ -137,16 +149,23 @@ void processGForceData(float gLong, float gLat, float gVert) {
     analogWrite(MOTOR_LAT_PIN_RIGHT, constrain(pwmLatRight, 0, MAX_PWM_VALUE));
 
 
-    // Print status periodically
+    // Print status periodically (including actuator data)
     if (millis() - lastStatusPrintTime > 1000) { // Print every 1 second
-        Serial.print("Arduino Mega RX GForces: ");
-        Serial.print("Lng: "); Serial.print(gLong, 2);
+        Serial.print("Arduino Mega RX Data: ");
+        Serial.print("GForces[Lng: "); Serial.print(gLong, 2);
         Serial.print(", Lat: "); Serial.print(gLat, 2);
-        Serial.print(", Vrt: "); Serial.print(gVert, 2);
-        Serial.print(" | PWM LngF: "); Serial.print(pwmLongFwd);
-        Serial.print(", LngR: "); Serial.print(pwmLongRev);
-        Serial.print(", LatL: "); Serial.print(pwmLatLeft);
-        Serial.print(", LatR: "); Serial.println(pwmLatRight);
+        Serial.print(", Vrt: "); Serial.print(gVert, 2); Serial.print("] ");
+        Serial.print("Actuators[Thr: "); Serial.print(throttle, 1); Serial.print("% ");
+        Serial.print("Brk: "); Serial.print(brake, 1); Serial.print("% ");
+        Serial.print("Str: "); Serial.print(steering); Serial.print("] ");
+        Serial.print("Susp[FL: "); Serial.print(suspFL, 2);
+        Serial.print(" FR: "); Serial.print(suspFR, 2);
+        Serial.print(" RL: "); Serial.print(suspRL, 2);
+        Serial.print(" RR: "); Serial.print(suspRR, 2); Serial.print("] ");
+        Serial.print("PWM[LngF: "); Serial.print(pwmLongFwd);
+        Serial.print(" LngR: "); Serial.print(pwmLongRev);
+        Serial.print(" LatL: "); Serial.print(pwmLatLeft);
+        Serial.print(" LatR: "); Serial.print(pwmLatRight); Serial.println("]");
         lastStatusPrintTime = millis();
     }
 }
@@ -158,16 +177,24 @@ void loop() {
 
         if (incomingChar == '\\n' || incomingChar == '\\r') { // End of line
             if (serialBufferPos > 0) { // We have some data
-                serialBuffer[serialBufferPos] = '\\0'; // Null-terminate
-
-                // Parse the data: "long,lat,vert"
+                serialBuffer[serialBufferPos] = '\\0'; // Null-terminate                // Parse the data: "long,lat,vert,throttle,brake,steering,suspension_fl,suspension_fr,suspension_rl,suspension_rr"
                 float gLong = 0.0, gLat = 0.0, gVert = 0.0;
-                int numValues = sscanf(serialBuffer, "%f,%f,%f", &gLong, &gLat, &gVert);
+                float throttle = 0.0, brake = 0.0;
+                int steering = 0;
+                float suspFL = 0.0, suspFR = 0.0, suspRL = 0.0, suspRR = 0.0;
+                
+                int numValues = sscanf(serialBuffer, "%f,%f,%f,%f,%f,%d,%f,%f,%f,%f", 
+                                     &gLong, &gLat, &gVert, &throttle, &brake, &steering, 
+                                     &suspFL, &suspFR, &suspRL, &suspRR);
 
-                if (numValues == 3) {
-                    processGForceData(gLong, gLat, gVert);
+                if (numValues == 10) {
+                    processGForceData(gLong, gLat, gVert, throttle, brake, steering, suspFL, suspFR, suspRL, suspRR);
+                } else if (numValues == 3) {
+                    // Backward compatibility with old format (just G-forces)
+                    processGForceData(gLong, gLat, gVert, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0);
                 } else {
-                    Serial.print("[WARN] Could not parse G-force data: ");
+                    Serial.print("[WARN] Could not parse telemetry data (expected 10 or 3 values, got ");
+                    Serial.print(numValues); Serial.print("): ");
                     Serial.println(serialBuffer);
                 }
                 serialBufferPos = 0; // Reset buffer
@@ -189,7 +216,7 @@ void loop() {
              Serial.println("[TIMEOUT] No data from PC. Stopping motors.");
              lastStatusPrintTime = millis(); // Reset status time to print this once
         }
-        processGForceData(0.0, 0.0, 1.0); // Send neutral G-forces to stop motors
+        processGForceData(0.0, 0.0, 1.0, 0.0, 0.0, 0, 0.0, 0.0, 0.0, 0.0); // Send neutral values to stop motors
         lastDataReceivedTime = millis(); // Reset timeout timer to avoid continuous messages after first one
     }
     delay(1); // Small delay

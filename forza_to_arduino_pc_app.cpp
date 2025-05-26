@@ -44,7 +44,7 @@ const int FORZA_UDP_PORT = 12345;
 const double PULL_RATE = 1.0; // How often to display status (in seconds) - matches Python
 
 // Serial Configuration for Arduino
-const char* SERIAL_PORT = "COM6"; // !!! IMPORTANT: CHANGE THIS to your Arduino's serial port !!!
+const char* SERIAL_PORT = "COM6"; // IMPORTANT: CHANGE THIS to your Arduino's serial port !!!
 const int SERIAL_BAUD_RATE = 115200; // Must match the BAUD_RATE in your Arduino sketch
 
 // Forza packet format - 324 bytes total, first 308 bytes are 77 floats
