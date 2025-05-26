@@ -1,0 +1,1 @@
+C:\MinGW\bin\g++.EXE -Wall -Wextra -g3 a:\C++\SRS-DataIntepreter\forza_to_arduino_gui_simple.cpp -o a:\C++\SRS-DataIntepreter\output\forza_to_arduino_gui_simple.exe -lws2_32 -lcomctl32 -lgdi32 -luser32 -lkernel32

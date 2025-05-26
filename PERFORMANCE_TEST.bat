@@ -25,10 +25,10 @@ echo  Available Applications:
 echo ====================================================
 echo.
 echo 1. Original Application (Timer-Based):
-echo    .\output\forza_to_arduino_gui_simple.exe
+echo    .\output\forza_to_arduino_gui_extended.exe
 echo.
 echo 2. Optimized Application (Threading):
-echo    .\output\forza_to_arduino_gui_simple_optimized.exe
+echo    .\output\forza_to_arduino_gui_simple.exe
 echo.
 echo ====================================================
 echo  Testing Instructions:

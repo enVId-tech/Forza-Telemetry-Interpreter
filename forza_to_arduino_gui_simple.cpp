@@ -113,7 +113,7 @@ DWORD WINAPI telemetry_thread_proc(LPVOID lpParam);
 class ForzaTelemetryGUI {
 public:    ForzaTelemetryGUI(HINSTANCE hInstance) : hInst(hInstance), sock(INVALID_SOCKET), 
                                             serial_handle(INVALID_HANDLE_VALUE), wsa_initialized(false),
-                                            running(false), telemetry_running(false), telemetry_thread(NULL) {
+                                            running(false), telemetry_thread(NULL), telemetry_running(false) {
         config = {}; // Initialize with defaults
         ui_state = {};
         InitializeCriticalSection(&ui_state_mutex);
@@ -353,8 +353,8 @@ private:
                                      x_right, y, 200, 20, hWnd, (HMENU)ID_STEERING_TEXT, hInst, NULL);
         y += line_height;
 
-        hSuspensionText = CreateWindowA("STATIC", "Suspension: FL:0.0 FR:0.0 RL:0.0 RR:0.0", WS_VISIBLE | WS_CHILD,
-                                       x_right, y, 280, 20, hWnd, (HMENU)ID_SUSPENSION_TEXT, hInst, NULL);
+        hSuspensionText = CreateWindowA("STATIC", "Suspension\nFL: 0.0 - FR: 0.0\nRL: 0.0 - RR:0.0", WS_VISIBLE | WS_CHILD,
+                                       x_right, y, 240, 50, hWnd, (HMENU)ID_SUSPENSION_TEXT, hInst, NULL);
     }
 
     void handle_command(int controlId) {
@@ -536,7 +536,7 @@ private:
         if (local_state.is_connected) {
             // Update telemetry data
             std::ostringstream speed_ss;
-            speed_ss << "Speed: " << std::fixed << std::setprecision(1) 
+            speed_ss << "Speed: " << std::fixed << std::setprecision(3) 
                      << local_state.current_telemetry.speed_mph << " mph ("
                      << (local_state.current_telemetry.speed * 3.6) << " km/h)";
             SetWindowTextA(hSpeedText, speed_ss.str().c_str());
@@ -572,11 +572,11 @@ private:
             steering_ss << "Steering: " << std::showpos << static_cast<int>(local_state.current_telemetry.steering);
             SetWindowTextA(hSteeringText, steering_ss.str().c_str());
 
-            suspension_ss << "Suspension: FL:" << std::fixed << std::setprecision(2) 
+            suspension_ss << "Suspension\nFL:" << std::fixed << std::setprecision(2) 
                          << local_state.current_telemetry.suspension_fl 
-                         << " FR:" << local_state.current_telemetry.suspension_fr
-                         << " RL:" << local_state.current_telemetry.suspension_rl 
-                         << " RR:" << local_state.current_telemetry.suspension_rr;
+                         << " - FR: " << local_state.current_telemetry.suspension_fr
+                         << "\nRL: " << local_state.current_telemetry.suspension_rl 
+                         << " - RR: " << local_state.current_telemetry.suspension_rr;
             SetWindowTextA(hSuspensionText, suspension_ss.str().c_str());
         }
     }
