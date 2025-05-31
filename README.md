@@ -1,3 +1,5 @@
+# Note: Made with AI
+
 # Forza Horizon Telemetry → Arduino Bridge
 
 A Windows application that captures UDP telemetry data from Forza Horizon 4/5, calculates G-forces, and forwards them to an Arduino via USB Serial. Available in both console and GUI versions.
